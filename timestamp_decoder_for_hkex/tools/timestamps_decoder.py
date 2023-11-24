@@ -17,10 +17,12 @@ def func_decode_pcap(filename, filetype):
     TCP_Count = 0
     UDP_Count = 0
     # 格式化输出
-    decoder_table = PrettyTable()
-    decoder_table.field_names = ['序号', '捕获帧长度', 'SN', '源地址', '目的地址', '协议',
-                                 '标识符', '设备标识', '端口序号', 'UTC时间', '时间戳',
-                                 '双精度时间']
+    quote_decoder_table = PrettyTable()
+    quote_decoder_table.field_names = ['序号', '捕获帧长度', 'SN', '源地址', '目的地址', '协议', '源端口', '目标端口', '标识符',
+                                       '设备标识', '端口序号', 'UTC时间', '时间戳','双精度时间']
+    trade_decoder_table = PrettyTable()
+    trade_decoder_table.field_names = ['序号', '捕获帧长度', 'MT', '源地址', '目的地址', '协议', '源端口', '目标端口', '标识符',
+                                       '设备标识', '端口序号', 'UTC时间', '时间戳','双精度时间']
     # 设置表格样式
     # table.set_style(MSWORD_FRIENDLY)
     try:
@@ -33,8 +35,7 @@ def func_decode_pcap(filename, filetype):
             Total_Count += 1
             All_Packet = Ether(Hex_Data)
             SN = '---'
-
-
+            MT = '---'
 
             if 'type' not in All_Packet.fields:
                 continue
@@ -76,20 +77,24 @@ def func_decode_pcap(filename, filetype):
             if IP_Packet.dst == "255.255.255.255":
                 continue
             match IP_Packet.proto:
-                case 1:
-                    ICMP_Count += 1
-                    ICMP_Data = [filename + '--Frame-' + str(Total_Count), len(Hex_Data), SN, IP_Packet.src, IP_Packet.dst,
-                                 'ICMP',
-                                 hex(IP_Packet.id), NIC_DeviceID, NIC_SourcePortID, UTC_TimeStamp, TimestampSecond,
-                                 TimestampFractionalSecond]
-                    decoder_table.add_row(ICMP_Data)
+                # case 1:
+                #     ICMP_Count += 1
+                #     ICMP_Data = [filename + '--Frame-' + str(Total_Count), len(Hex_Data), SN, IP_Packet.src, IP_Packet.dst,
+                #                  'ICMP',
+                #                  hex(IP_Packet.id), NIC_DeviceID, NIC_SourcePortID, UTC_TimeStamp, TimestampSecond,
+                #                  TimestampFractionalSecond]
+                #     decoder_table.add_row(ICMP_Data)
                 case 6:
                     TCP_Count += 1
-                    TCP_Data = [filename + '--Frame-' + str(Total_Count), len(Hex_Data), SN, IP_Packet.src, IP_Packet.dst,
-                                'TCP',
-                                hex(IP_Packet.id), NIC_DeviceID, NIC_SourcePortID, UTC_TimeStamp, TimestampSecond,
-                                TimestampFractionalSecond]
-                    decoder_table.add_row(TCP_Data)
+                    TCP_Data = All_Packet[TCP]
+                    if IP_Packet.dport == 22 and 'Raw' in TCP_Data.payload:
+                        ByteArray = bytearray.fromhex(raw(TCP_Data.payload)[5:6].hex())
+                        MT = int(ByteArray.hex(), 16)
+                        TCP_Data = [filename + '--Frame-' + str(Total_Count), len(Hex_Data), MT, IP_Packet.src, IP_Packet.dst,
+                                    'TCP',IP_Packet.sport, IP_Packet.dport,
+                                    hex(IP_Packet.id), NIC_DeviceID, NIC_SourcePortID, UTC_TimeStamp, TimestampSecond,
+                                    TimestampFractionalSecond]
+                        trade_decoder_table.add_row(TCP_Data)
                 case 17:
                     UDP_Data = All_Packet[UDP]
                     ByteArray = bytearray.fromhex(raw(UDP_Data)[12:16].hex())
@@ -98,10 +103,10 @@ def func_decode_pcap(filename, filetype):
 
                     UDP_Count += 1
                     UDP_Data = [filename + '--Frame-' + str(Total_Count), len(Hex_Data), SN, IP_Packet.src, IP_Packet.dst,
-                                'UDP',
+                                'UDP',IP_Packet.sport, IP_Packet.dport,
                                 hex(IP_Packet.id), NIC_DeviceID, NIC_SourcePortID, UTC_TimeStamp, TimestampSecond,
                                 TimestampFractionalSecond]
-                    decoder_table.add_row(UDP_Data)
+                    quote_decoder_table.add_row(UDP_Data)
 
         print('抓包文件解析完成.'
               'Total Packets: ' + str(Total_Count) + '，' +
@@ -113,4 +118,7 @@ def func_decode_pcap(filename, filetype):
     except Scapy_Exception as e:
         sys.exit('The script terminated unexceptedly, please check error message: ' + str(e))
 
-    print(decoder_table)
+    print('*' * 50 + '行情数据表格如下'+ '*' * 50)
+    print(quote_decoder_table)
+    print('*' * 50 + '交易数据表格如下'+ '*' * 50)
+    print(trade_decoder_table)

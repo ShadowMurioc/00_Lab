@@ -11,6 +11,7 @@ exact-capture -m 100000  -k -i exanic0:0 -i exanic0:1 -o /data0/hft_capture -c 0
 解析后，将解析后的数据包放到done目录下 【已实现的需求】
 
 v20231124: Add HKEX Quote SN，NIC Port ID
+            Add MT value, 未实际校验. 为了保障数据的准确.过滤条件需要修改成实际的TCP 端口, # Line 90
 
 '''
 
